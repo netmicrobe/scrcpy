@@ -164,7 +164,7 @@ public final class Device {
         return supportsInputEvents;
     }
 
-    public static boolean injectEvent(InputEvent inputEvent, int displayId) {
+    public static boolean injectEvent(InputEvent inputEvent, int displayId, int mode) {
         if (!supportsInputEvents(displayId)) {
             throw new AssertionError("Could not inject input event if !supportsInputEvents()");
         }
@@ -173,7 +173,11 @@ public final class Device {
             return false;
         }
 
-        return SERVICE_MANAGER.getInputManager().injectInputEvent(inputEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+        return SERVICE_MANAGER.getInputManager().injectInputEvent(inputEvent, mode);
+    }
+    
+    public static boolean injectEvent(InputEvent inputEvent, int displayId) {
+      return injectEvent(inputEvent, displayId, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
     public boolean injectEvent(InputEvent event) {
@@ -186,6 +190,13 @@ public final class Device {
                 InputDevice.SOURCE_KEYBOARD);
         return injectEvent(event, displayId);
     }
+     
+    public static boolean injectKeyEvent(int action, int keyCode, int repeat, int metaState, int displayId, int mode) {
+        long now = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(now, now, action, keyCode, repeat, metaState, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0,
+                InputDevice.SOURCE_KEYBOARD);
+        return injectEvent(event, displayId, mode);
+    }
 
     public boolean injectKeyEvent(int action, int keyCode, int repeat, int metaState) {
         return injectKeyEvent(action, keyCode, repeat, metaState, displayId);
@@ -195,8 +206,38 @@ public final class Device {
         return injectKeyEvent(KeyEvent.ACTION_DOWN, keyCode, 0, 0, displayId) && injectKeyEvent(KeyEvent.ACTION_UP, keyCode, 0, 0, displayId);
     }
 
+    public static boolean pressReleaseKeycode(int keyCode, int displayId, int mode) {
+        return injectKeyEvent(KeyEvent.ACTION_DOWN, keyCode, 0, 0, displayId) && injectKeyEvent(KeyEvent.ACTION_UP, keyCode, 0, 0, displayId, mode);
+    }
+
     public boolean pressReleaseKeycode(int keyCode) {
         return pressReleaseKeycode(keyCode, displayId);
+    }
+    
+    public boolean injectTextPaste(String text) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            return false;
+        }
+
+        // On Android >= 7, we can inject UTF-8 text as follow:
+        // - set the clipboard
+        // - inject the PASTE key event
+        // - restore the clipboard
+
+        ClipboardManager clipboardManager = SERVICE_MANAGER.getClipboardManager();
+        if (clipboardManager == null) {
+            return false;
+        }
+        
+        String clipboardBackup = getClipboardText();
+        isSettingClipboard.set(true);
+
+        clipboardManager.setText(text);
+        boolean ok = pressReleaseKeycode(KeyEvent.KEYCODE_PASTE, displayId,  InputManager.INJECT_INPUT_EVENT_MODE_WAIT_FOR_RESULT);
+        clipboardManager.setText(clipboardBackup);
+
+        isSettingClipboard.set(false);
+        return ok;
     }
 
     public static boolean isScreenOn() {
