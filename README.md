@@ -1,3 +1,9 @@
+# utf8-char-input BRANCH
+
+    从 origin/textpaste 移植代码支持中文输入，目前base 在 v1.19
+    
+    在一加5T 氢OS 10.0.3 测试，大部分应用微信、淘宝都可以输入中文，但是闲鱼（版本7.1.80）还不行。
+
 # scrcpy (v1.19)
 
 [Read in another language](#translations)
